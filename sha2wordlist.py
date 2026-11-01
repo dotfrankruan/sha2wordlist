@@ -23,11 +23,18 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import argparse
 import hashlib
 import sys
 from typing import List
 
 BUFLEN = 16384
+
+ALGORITHMS = {
+    "sha256": "SHA-256",
+    "sha384": "SHA-384",
+    "sha512": "SHA-512",
+}
 
 # https://en.wikipedia.org/wiki/PGP_word_list
 # https://philzimmermann.com/docs/PGP_word_list.pdf
@@ -306,7 +313,19 @@ def pgp_wordlist(data: bytes) -> List[str]:
 
 def main() -> None:
     """Main function"""
-    h = hashlib.new("sha256")
+    parser = argparse.ArgumentParser(
+        description="Digest STDIN and display the checksum as PGP words."
+    )
+    parser.add_argument(
+        "-a",
+        "--algorithm",
+        choices=ALGORITHMS,
+        default="sha256",
+        help="SHA-2 algorithm to use (default: sha256)",
+    )
+    args = parser.parse_args()
+
+    h = hashlib.new(args.algorithm)
 
     while True:
         data = sys.stdin.buffer.read(BUFLEN)
@@ -316,8 +335,8 @@ def main() -> None:
             break
 
     words = " ".join(pgp_wordlist(h.digest()))
-    print("SHA-256:    ", h.hexdigest())
-    print("PGP Words:  ", words)
+    print(f"{ALGORITHMS[args.algorithm]}:    {h.hexdigest()}")
+    print(f"PGP Words:  {words}")
 
 
 if __name__ == "__main__":

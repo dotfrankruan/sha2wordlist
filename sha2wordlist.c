@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #ifdef __linux__
@@ -37,6 +38,12 @@
 #include "sha2.h"
 
 #define BUFLEN 16384
+
+enum sha2_algorithm {
+	SHA2_256,
+	SHA2_384,
+	SHA2_512
+};
 
 const char *wordlist_even[] = {
 	"aardvark", "absurd", "accrue", "acme", "adrift",
@@ -187,27 +194,116 @@ pgp_wordlist(const char *str, char *buf, size_t bufsize)
 	}
 }
 
+void
+usage(const char *progname)
+{
+	fprintf(stderr, "usage: %s [-a sha256|sha384|sha512]\n", progname);
+}
+
+int
+hash_fd(int fd, enum sha2_algorithm algorithm, char *hex)
+{
+	unsigned char buf[BUFLEN];
+	ssize_t nbytes;
+	SHA256_CTX ctx256;
+	SHA384_CTX ctx384;
+	SHA512_CTX ctx512;
+
+	switch (algorithm) {
+	case SHA2_256:
+		SHA256_Init(&ctx256);
+		break;
+	case SHA2_384:
+		SHA384_Init(&ctx384);
+		break;
+	case SHA2_512:
+		SHA512_Init(&ctx512);
+		break;
+	}
+
+	while ((nbytes = read(fd, buf, sizeof(buf))) > 0) {
+		switch (algorithm) {
+		case SHA2_256:
+			SHA256_Update(&ctx256, buf, nbytes);
+			break;
+		case SHA2_384:
+			SHA384_Update(&ctx384, buf, nbytes);
+			break;
+		case SHA2_512:
+			SHA512_Update(&ctx512, buf, nbytes);
+			break;
+		}
+	}
+
+	if (nbytes < 0)
+		return -1;
+
+	switch (algorithm) {
+	case SHA2_256:
+		SHA256_End(&ctx256, hex);
+		break;
+	case SHA2_384:
+		SHA384_End(&ctx384, hex);
+		break;
+	case SHA2_512:
+		SHA512_End(&ctx512, hex);
+		break;
+	}
+
+	return 0;
+}
+
 int
 main(int argc, char **argv)
 {
+	int ch;
 	int fd;
-	ssize_t nbytes;
-	SHA256_CTX ctx256;
-	char hash[BUFLEN];
+	enum sha2_algorithm algorithm = SHA2_256;
+	const char *algorithm_name = "SHA-256";
+	char hash[SHA512_DIGEST_STRING_LENGTH];
 	char words[BUFLEN];
+
+	while ((ch = getopt(argc, argv, "a:h")) != -1) {
+		switch (ch) {
+		case 'a':
+			if (strcasecmp(optarg, "sha256") == 0) {
+				algorithm = SHA2_256;
+				algorithm_name = "SHA-256";
+			} else if (strcasecmp(optarg, "sha384") == 0) {
+				algorithm = SHA2_384;
+				algorithm_name = "SHA-384";
+			} else if (strcasecmp(optarg, "sha512") == 0) {
+				algorithm = SHA2_512;
+				algorithm_name = "SHA-512";
+			} else {
+				usage(argv[0]);
+				exit(1);
+			}
+			break;
+		case 'h':
+			usage(argv[0]);
+			exit(0);
+		default:
+			usage(argv[0]);
+			exit(1);
+		}
+	}
+
+	if (optind != argc) {
+		usage(argv[0]);
+		exit(1);
+	}
 
 	fd = fileno(stdin);
 
-	SHA256_Init(&ctx256);
+	if (hash_fd(fd, algorithm, hash) < 0) {
+		perror("read");
+		exit(1);
+	}
 
-	while ((nbytes = read(fd, hash, BUFLEN)) > 0)
-		SHA256_Update(&ctx256, (unsigned char *) hash, nbytes);
-
-	SHA256_End(&ctx256, hash);
-	
 	pgp_wordlist(hash, words, sizeof(words));
 
-	printf("SHA-256:    %s\n",  hash);
+	printf("%s:    %s\n", algorithm_name, hash);
 	printf("PGP Words:  %s\n", words);
 
 	exit(0);
