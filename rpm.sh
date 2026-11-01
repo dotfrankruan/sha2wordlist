@@ -10,7 +10,6 @@ mkdir -p "$TOP/BUILD" "$TOP/RPMS" "$TOP/SOURCES" "$TOP/SPECS" "$TOP/SRPMS"
 cp sha2wordlist "$TOP/SOURCES/sha2wordlist"
 
 rpmbuild -bb \
-	--ignorearch \
 	--define "_topdir $TOP" \
 	--define "version $VERSION" \
 	--target "$ARCH" \

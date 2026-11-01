@@ -16,21 +16,21 @@ env:
 jobs:
   linux:
     name: Linux ${{ matrix.arch }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x86_64
-            cc: gcc
+            runner: ubuntu-latest
             deb_arch: amd64
             rpm_arch: x86_64
           - arch: aarch64
-            cc: aarch64-linux-gnu-gcc
+            runner: ubuntu-24.04-arm
             deb_arch: arm64
             rpm_arch: aarch64
     env:
-      CC: ${{ matrix.cc }}
+      CC: gcc
       CFLAGS: "-O2"
       LDFLAGS: "-static"
     steps:
@@ -40,9 +40,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y rpm
-          if [ "${{ matrix.arch }}" = "aarch64" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu qemu-user
-          fi
 
       - name: Build static ELF
         run: |
@@ -53,12 +50,7 @@ jobs:
           file "dist/sha2wordlist-linux-${{ matrix.arch }}"
 
       - name: Test static ELF
-        run: |
-          if [ "${{ matrix.arch }}" = "aarch64" ]; then
-            printf 'hello' | qemu-aarch64 ./sha2wordlist -a sha512
-          else
-            printf 'hello' | ./sha2wordlist -a sha512
-          fi
+        run: printf 'hello' | ./sha2wordlist -a sha512
 
       - name: Build .deb
         env:
