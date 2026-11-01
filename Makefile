@@ -1,28 +1,42 @@
 PROG=		sha2wordlist
 SRCS=		sha2wordlist.c sha2.c
 OBJS=		sha2wordlist.o sha2.o
-LDFLAGS=
-LIBS=
+VERSION?=	1.0.0
+PREFIX?=	/usr/local
+CC?=		cc
+CFLAGS?=	-O2
+CPPFLAGS?=
+LDFLAGS?=
+LIBS?=
 
 IDENT_OPTS=	-v -nip
 
 all: $(PROG)
 
 $(PROG): $(OBJS)
-	gcc -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
-clean::
-	rm -f $(PROG) $(OBJS)
+sha2wordlist.o: sha2wordlist.c sha2.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ sha2wordlist.c
 
-indent::
+sha2.o: sha2.c sha2.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ sha2.c
+
+clean:
+	rm -f $(PROG) $(OBJS) *.deb *.rpm
+	rm -rf build
+
+indent:
 	indent $(INDENT_OPTS) < sha2wordlist.c
 
-sha2wordlist.deb: $(PROG)
-	sh deb.sh
+deb: $(PROG)
+	VERSION=$(VERSION) sh deb.sh
 
-container-build-deb:
-	docker build -t sha2wordlist .
-	docker create --name sha2wordlist sha2wordlist
-	docker cp sha2wordlist:/src/sha2wordlist.deb .
-	docker rm -f sha2wordlist
-	docker rmi -f sha2wordlist
+rpm: $(PROG)
+	VERSION=$(VERSION) sh rpm.sh
+
+install: $(PROG)
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -m 0755 $(PROG) $(DESTDIR)$(PREFIX)/bin/$(PROG)
+
+.PHONY: all clean indent deb rpm install

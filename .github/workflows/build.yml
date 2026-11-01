@@ -1,0 +1,134 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VERSION: "1.0.0"
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            cc: gcc
+            deb_arch: amd64
+            rpm_arch: x86_64
+          - arch: aarch64
+            cc: aarch64-linux-gnu-gcc
+            deb_arch: arm64
+            rpm_arch: aarch64
+    env:
+      CC: ${{ matrix.cc }}
+      CFLAGS: "-O2"
+      LDFLAGS: "-static"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          if [ "${{ matrix.arch }}" = "aarch64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu qemu-user-static
+          fi
+
+      - name: Build static ELF
+        run: |
+          make clean
+          make
+          mkdir -p dist
+          cp sha2wordlist "dist/sha2wordlist-linux-${{ matrix.arch }}"
+          file "dist/sha2wordlist-linux-${{ matrix.arch }}"
+
+      - name: Test static ELF
+        run: |
+          if [ "${{ matrix.arch }}" = "aarch64" ]; then
+            printf 'hello' | qemu-aarch64-static ./sha2wordlist -a sha512
+          else
+            printf 'hello' | ./sha2wordlist -a sha512
+          fi
+
+      - name: Build .deb
+        env:
+          ARCH: ${{ matrix.deb_arch }}
+        run: |
+          make deb
+          mv sha2wordlist.deb "dist/sha2wordlist_${VERSION}_${{ matrix.deb_arch }}.deb"
+          dpkg-deb --info "dist/sha2wordlist_${VERSION}_${{ matrix.deb_arch }}.deb"
+
+      - name: Build .rpm
+        env:
+          ARCH: ${{ matrix.rpm_arch }}
+        run: |
+          make rpm
+          mv sha2wordlist-*.rpm dist/
+          rpm -qip dist/sha2wordlist-*.rpm
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  macos:
+    name: macOS universal
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Linux -> macOS cross-compilation requires the Apple SDK. Build on a
+      # macOS runner and cross-compile the other architecture with the SDK.
+      - name: Build universal Darwin binary
+        run: |
+          make clean
+          make CC=clang \
+            CFLAGS="-O2 -arch arm64 -arch x86_64" \
+            LDFLAGS="-arch arm64 -arch x86_64"
+          mkdir -p dist
+          cp sha2wordlist dist/sha2wordlist-darwin-universal
+          lipo sha2wordlist -thin arm64 -output dist/sha2wordlist-darwin-arm64
+          lipo sha2wordlist -thin x86_64 -output dist/sha2wordlist-darwin-x86_64
+          file dist/*
+          lipo -info dist/sha2wordlist-darwin-universal
+          printf 'hello' | ./sha2wordlist -a sha512
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List release files
+        run: ls -lh dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009 Kirei AB. All rights reserved.
+ * Copyright (c) 2026 Frank Ruan. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,10 +32,6 @@
 #include <strings.h>
 #include <unistd.h>
 
-#ifdef __linux__
-#include <bsd/string.h>
-#endif
-
 #include "sha2.h"
 
 #define BUFLEN 16384
@@ -44,6 +41,28 @@ enum sha2_algorithm {
 	SHA2_384,
 	SHA2_512
 };
+
+static size_t
+strlcat_compat(char *dst, const char *src, size_t dstsize)
+{
+	size_t dstlen = 0;
+	size_t srclen = strlen(src);
+
+	while (dstlen < dstsize && dst[dstlen] != '\0')
+		dstlen++;
+
+	if (dstlen == dstsize)
+		return dstsize + srclen;
+
+	if (srclen < dstsize - dstlen) {
+		memcpy(dst + dstlen, src, srclen + 1);
+	} else {
+		memcpy(dst + dstlen, src, dstsize - dstlen - 1);
+		dst[dstsize - 1] = '\0';
+	}
+
+	return dstlen + srclen;
+}
 
 const char *wordlist_even[] = {
 	"aardvark", "absurd", "accrue", "acme", "adrift",
@@ -186,11 +205,11 @@ pgp_wordlist(const char *str, char *buf, size_t bufsize)
 	for (i = 0; i < nwords; i++) {
 		b = (hex2int(str[i*2]) << 4) + hex2int(str[i*2+1]);
 		if (i % 2)
-			strlcat(buf, wordlist_odd[b], bufsize);
+			strlcat_compat(buf, wordlist_odd[b], bufsize);
 		else
-			strlcat(buf, wordlist_even[b], bufsize);
+			strlcat_compat(buf, wordlist_even[b], bufsize);
 		if (i != nwords-1)
-			strlcat(buf, " ", bufsize);
+			strlcat_compat(buf, " ", bufsize);
 	}
 }
 

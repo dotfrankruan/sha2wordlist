@@ -1,12 +1,15 @@
 #!/bin/sh
+set -eu
 
-ARCH=`dpkg --print-architecture`
+ARCH=${ARCH:-`dpkg --print-architecture`}
+VERSION=${VERSION:-1.0.0}
+ROOT=build/sha2wordlist
 
-install -d build/sha2wordlist/usr/bin build/sha2wordlist/DEBIAN
-install -m 555 sha2wordlist build/sha2wordlist/usr/bin
+rm -rf "$ROOT"
+install -d "$ROOT/usr/bin" "$ROOT/DEBIAN"
+install -m 755 sha2wordlist "$ROOT/usr/bin/sha2wordlist"
 
-sed -e "s/_ARCH_/${ARCH}/" <sha2wordlist.control >build/sha2wordlist/DEBIAN/control
+sed -e "s/_ARCH_/${ARCH}/g" -e "s/_VERSION_/${VERSION}/g" \
+	<sha2wordlist.control >"$ROOT/DEBIAN/control"
 
-dpkg-deb --build build/sha2wordlist
-
-mv build/sha2wordlist.deb .
+dpkg-deb --build --root-owner-group "$ROOT" sha2wordlist.deb

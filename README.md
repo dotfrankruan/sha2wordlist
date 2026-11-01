@@ -19,3 +19,28 @@ PGP Words:  Burbank vagabond dreadful puberty eyetooth phonetic reform Atlantic 
 ```
 
 The same input with `-a sha384` or `-a sha512` produces a longer checksum and word list.
+
+## Building
+
+```
+make                    # native binary
+make deb                # Debian package
+make rpm                # RPM package
+make install            # install under /usr/local (PREFIX=/usr/local)
+```
+
+Cross-compiling a static Linux binary:
+
+```
+make clean
+make CC=aarch64-linux-gnu-gcc LDFLAGS=-static
+```
+
+The GitHub Actions workflow builds:
+
+- static ELF binaries for Linux `x86_64` and `aarch64`
+- `.deb` and `.rpm` packages for both architectures
+- a universal Darwin binary (`arm64` + `x86_64`)
+
+Linux-to-macOS cross-compilation needs the Apple SDK, so the Darwin binary is
+built on a macOS runner, cross-compiling `x86_64` from the arm64 host.
