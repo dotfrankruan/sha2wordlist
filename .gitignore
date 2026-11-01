@@ -1,3 +1,6 @@
 *.o
 *.deb
+*.rpm
+.DS_Store
+dist/
 sha2wordlist

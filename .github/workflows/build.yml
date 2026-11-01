@@ -34,7 +34,7 @@ jobs:
       CFLAGS: "-O2"
       LDFLAGS: "-static"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -69,7 +69,7 @@ jobs:
           rpm -qip dist/sha2wordlist-*.rpm
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-${{ matrix.arch }}
           path: dist/*
@@ -79,7 +79,7 @@ jobs:
     name: macOS universal
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Linux -> macOS cross-compilation requires the Apple SDK. Build on a
       # macOS runner and cross-compile the other architecture with the SDK.
@@ -98,7 +98,7 @@ jobs:
           printf 'hello' | ./sha2wordlist -a sha512
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-universal
           path: dist/*
@@ -112,7 +112,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -120,7 +120,7 @@ jobs:
       - name: List release files
         run: ls -lh dist
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true
