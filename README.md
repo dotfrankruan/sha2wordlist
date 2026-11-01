@@ -44,3 +44,6 @@ The GitHub Actions workflow builds:
 
 Linux-to-macOS cross-compilation needs the Apple SDK, so the Darwin binary is
 built on a macOS runner, cross-compiling `x86_64` from the arm64 host.
+
+Pushing to `main` automatically updates the **Latest build** prerelease on the
+GitHub Releases page. Pushing a `v*` tag creates a versioned release instead.
